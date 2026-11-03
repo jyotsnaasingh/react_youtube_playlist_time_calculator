@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const API_KEY = "AIzaSyD339brQTFOWhn8qeU3cJLUjrvUmMaVsWo"
+
 
 function App() {
   const [url, setUrl] = useState("")
@@ -31,56 +31,29 @@ function App() {
     setLoading(true)
 
     try {
-      let sum = 0
-      let pageToken = ""
+      
+const response = await fetch(
+  "/.netlify/functions/playlist-duration",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ playlistId })
+  }
+)
 
-      do {
-        // Step 1: get video IDs from playlist
-        const playlistRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/playlistItems` +
-          `?part=contentDetails` +
-          `&maxResults=50` +
-          `&playlistId=${playlistId}` +
-          `&key=${API_KEY}` +
-          (pageToken ? `&pageToken=${pageToken}` : "")
-        )
-        const playlistData = await playlistRes.json()
+const data = await response.json()
 
-        if (playlistData.error) {
-          setError("YouTube API error: " + playlistData.error.message)
-          setLoading(false)
-          return
-        }
+if (!response.ok) {
+  setError("YouTube API error: " + data.error)
+  return
+}
 
-        const videoIds = playlistData.items
-          .map(item => item.contentDetails.videoId)
-          .join(",")
+setTotalSeconds(data.totalSeconds)
 
-        // Step 2: get durations for those video IDs
-        const videoRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos` +
-          `?part=contentDetails` +
-          `&id=${videoIds}` +
-          `&key=${API_KEY}`
-        )
-        const videoData = await videoRes.json()
-
-        // Step 3: parse ISO 8601 duration (e.g. PT1H2M3S) and add to sum
-        videoData.items.forEach(item => {
-          const duration = item.contentDetails.duration
-          const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
-          const hours = Number(match[1] || 0)
-          const minutes = Number(match[2] || 0)
-          const seconds = Number(match[3] || 0)
-          sum += hours * 3600 + minutes * 60 + seconds
-        })
-
-        pageToken = playlistData.nextPageToken || ""
-      } while (pageToken)
-
-      setTotalSeconds(sum)
     } catch {
-      setError("Something went wrong while fetching. Check your API key and try again.")
+      setError("Something went wrong while fetching the playlist. Please try again..")
     } finally {
       setLoading(false)
     }
